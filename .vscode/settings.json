@@ -1,0 +1,31 @@
+{
+  "editor.rulers": [
+    100,
+    120
+  ],
+  "files.exclude": {
+    "**/.git": true,
+    "**/.DS_Store": true,
+    "**/tmp": true,
+    "**/deps": true
+  },
+  "indentRainbow.colorOnWhiteSpaceOnly": true,
+  "indentRainbow.errorColor": "",
+  "indentRainbow.ignoreErrorLanguages": [
+    "elixir",
+    "html",
+    "markdown"
+  ],
+  "sqltools.connections": [
+    {
+      "previewLimit": 50,
+      "server": "localhost",
+      "port": 5432,
+      "driver": "PostgreSQL",
+      "name": "Dev",
+      "database": "pelican_dev",
+      "username": "postgres",
+      "password": "postgres"
+    }
+  ]
+}
