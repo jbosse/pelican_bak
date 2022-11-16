@@ -52,6 +52,8 @@ defmodule Pelican.MixProject do
       {:gettext, "~> 0.20"},
       {:jason, "~> 1.2"},
       {:plug_cowboy, "~> 2.5"},
+      {:libphonenumber, "~> 0.1.0"},
+      {:ex_twilio, "~> 0.9.1"},
       {:mix_test_watch, "~> 1.0", only: [:dev, :test], runtime: false}
     ]
   end

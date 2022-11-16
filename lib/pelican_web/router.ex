@@ -50,7 +50,8 @@ defmodule PelicanWeb.Router do
 
     live_session :redirect_if_user_is_authenticated,
       on_mount: [{PelicanWeb.UserAuth, :redirect_if_user_is_authenticated}] do
-      live "/", UserRegistrationLive, :new
+      live "/", UserAuthenticationLive, :new
+      live "/stream", StreamLive, :show
       live "/users/register", UserRegistrationLive, :new
       live "/users/log_in", UserLoginLive, :new
       live "/users/reset_password", UserForgotPasswordLive, :new

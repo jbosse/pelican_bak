@@ -3,6 +3,11 @@ defmodule Pelican.Accounts.User do
   import Ecto.Changeset
 
   schema "users" do
+    field :name, :string
+    field :username, :string
+    field :country_id, :integer
+    field :phone_number, :string
+    field :birthdate, :date
     field :email, :string
     field :password, :string, virtual: true, redact: true
     field :hashed_password, :string, redact: true
@@ -36,9 +41,12 @@ defmodule Pelican.Accounts.User do
   """
   def registration_changeset(user, attrs, opts \\ []) do
     user
-    |> cast(attrs, [:email, :password])
-    |> validate_email(opts)
-    |> validate_password(opts)
+    |> cast(attrs, [:name, :birthdate, :country_id, :phone_number])
+
+    # |> validate_name(opts)
+    # |> validate_birthdate(opts)
+    # |> validate_country_id(opts)
+    # |> validate_phone_number(opts)mix phx.server
   end
 
   defp validate_email(changeset, opts) do
