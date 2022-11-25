@@ -62,7 +62,10 @@ config :phoenix, :json_library, Jason
 # Twilio configuration
 config :ex_twilio,
   account_sid: {:system, "TWILIO_ACCOUNT_SID"},
-  auth_token: {:system, "TWILIO_AUTH_TOKEN"}
+  auth_token: {:system, "TWILIO_AUTH_TOKEN"},
+  twilio_phone_number: System.get_env("TWILIO_PHONE_NUMBER")
+
+config :pelican, enable_twillio: true
 
 # Import environment specific config. This must remain at the bottom
 # of this file so it overrides the configuration defined above.

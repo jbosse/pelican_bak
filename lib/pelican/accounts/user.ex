@@ -12,6 +12,7 @@ defmodule Pelican.Accounts.User do
     field :password, :string, virtual: true, redact: true
     field :hashed_password, :string, redact: true
     field :confirmed_at, :naive_datetime
+    field :confirmation_code, :string
 
     timestamps()
   end
@@ -41,12 +42,8 @@ defmodule Pelican.Accounts.User do
   """
   def registration_changeset(user, attrs, opts \\ []) do
     user
-    |> cast(attrs, [:name, :birthdate, :country_id, :phone_number])
-
-    # |> validate_name(opts)
-    # |> validate_birthdate(opts)
-    # |> validate_country_id(opts)
-    # |> validate_phone_number(opts)mix phx.server
+    |> cast(attrs, [:name, :birthdate, :country_id, :phone_number, :confirmation_code])
+    |> validate_required([:name, :birthdate, :country_id, :phone_number, :confirmation_code])
   end
 
   defp validate_email(changeset, opts) do

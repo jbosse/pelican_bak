@@ -30,6 +30,8 @@ defmodule PelicanWeb.UserAuthenticationLive do
             placeholder="Your name"
             required
           />
+        <% else %>
+          <.input field={{f, :name}} type="hidden" />
         <% end %>
         <%= if @step == :birthdate do %>
           <.input
@@ -39,11 +41,16 @@ defmodule PelicanWeb.UserAuthenticationLive do
             placeholder="Your name"
             required
           />
+        <% else %>
+          <.input field={{f, :birthdate}} type="hidden" />
         <% end %>
         <%= if @step == :phone do %>
           <label>Create your account using your phone number</label>
-          <.input field={{f, :country_id}} type="select" options={country_options()} required />
+          <.input field={{f, :country_id}} type="select" options={@country_options} required />
           <.input field={{f, :phone_number}} type="text" placeholder="Your phone" required />
+        <% else %>
+          <.input field={{f, :country_id}} type="hidden" />
+          <.input field={{f, :phone_number}} type="hidden" />
         <% end %>
         <%= if @step == :confirmation_code do %>
           <.input
@@ -52,6 +59,8 @@ defmodule PelicanWeb.UserAuthenticationLive do
             label={"Enter the code we sent to #{@number}"}
             required
           />
+        <% else %>
+          <.input field={{f, :confirmation_code}} type="hidden" />
         <% end %>
 
         <:actions>
@@ -65,141 +74,90 @@ defmodule PelicanWeb.UserAuthenticationLive do
   end
 
   def mount(_params, _session, socket) do
-    user = %User{}
-    registration = Accounts.change_user_registration(user)
+    changeset = Accounts.change_user_registration(%User{})
     step = :name
 
     socket =
       socket
-      |> assign(trigger_submit: false)
-      |> assign(user: user)
-      |> assign(step: step)
-      |> assign(registration: registration)
+      |> assign(:trigger_submit, false)
+      |> assign(:step, step)
+      |> assign(:registration, changeset)
       |> assign(:valid, false)
+      |> assign(:country_options, country_options())
       |> assign(:continue_button_text, "Continue")
       |> assign(:error, "")
 
     {:ok, socket}
   end
 
-  def handle_event(
-        "validate",
-        %{"user" => %{"name" => name}},
-        %{assigns: %{step: :name}} = socket
-      ) do
-    valid = name != ""
-    socket = socket |> assign(:valid, valid)
+
+  def handle_event("validate", %{"user" => user_params}, %{assigns: %{step: :confirmation_code}} = socket) do
+    changeset = Accounts.change_user_registration(%User{}, user_params)
+
+    socket = socket
+    |> assign(:registration, changeset)
+    |> assign(:trigger_submit, user_params["confirmation_code"] |> String.length() == 6)
+
     {:noreply, socket}
   end
 
-  def handle_event(
-        "validate",
-        %{"user" => %{"birthdate" => birthdate}},
-        %{assigns: %{step: :birthdate}} = socket
-      ) do
-    valid = birthdate != ""
-    socket = socket |> assign(:valid, valid)
-    {:noreply, socket}
-  end
-
-  def handle_event(
-        "validate",
-        %{"user" => %{"country_id" => country_id, "phone_number" => phone_number}},
-        %{assigns: %{step: :phone}} = socket
-      ) do
-    user = socket.assigns.user
-    country = Countries.get_country!(country_id)
-    user = %User{user | country_id: country.id}
-    registration = Accounts.change_user_registration(user)
-    number = "+#{country.code}#{phone_number}"
-    %{valid: valid} = Libphonenumber.mobile_phone_number_info(number)
-    socket = socket |> assign(:registration, registration) |> assign(:valid, valid)
-    {:noreply, socket}
-  end
-
-  def handle_event(
-        "validate",
-        %{"user" => %{"confirmation_code" => confirmation_code}},
-        %{assigns: %{step: :confirmation_code}} = socket
-      ) do
-    socket =
-      if confirmation_code |> String.length() == 6 do
-        if confirmation_code == "123456" do
-          socket |> redirect(to: ~p"/stream")
-        else
-          socket |> assign(:error, "Invalid code")
+  def handle_event("validate", %{"user" => user_params}, %{assigns: %{step: step}} = socket) do
+    valid = case step do
+      :name -> user_params["name"] != ""
+      :birthdate ->
+        case Date.from_iso8601(user_params["birthdate"]) do
+          {:ok, _} -> user_params["birthdate"] != ""
+          _ -> false
         end
-      else
-        socket
-      end
+      :phone ->
+          user_params["country_id"] != "" && user_params["phone_number"] != ""
+          country = Countries.get_country!(user_params["country_id"])
+          clean_number = String.replace(user_params["phone_number"], ~r/[^0-9]/, "")
+          clean_phone_number = "+#{country.code}#{clean_number}"
+          %{valid: valid} = Libphonenumber.mobile_phone_number_info(clean_phone_number)
+          valid
+    end
+    changeset = Accounts.change_user_registration(%User{}, user_params)
+    {:noreply, socket |> assign(:valid, valid) |> assign(:registration, changeset)}
+  end
 
+  def handle_event("next", %{"user" => user_params}, %{assigns: %{step: :confirmation_code}} = socket) do
+    socket = send_code(user_params, socket)
     {:noreply, socket}
   end
 
-  def handle_event("next", %{"user" => %{"name" => name}}, socket) do
-    user = socket.assigns.user
-    user = %User{user | name: name}
-    registration = Accounts.change_user_registration(user)
-    step = :birthdate
+  def handle_event("next", %{"user" => user_params}, %{assigns: %{step: :phone}} = socket) do
+    socket = send_code(user_params, socket) |> assign(:step, :confirmation_code)
+    {:noreply, socket}
+  end
+
+  def handle_event("next", %{"user" => user_params}, %{assigns: %{step: step}} = socket) do
+    step =  case step do
+      :name -> :birthdate
+      :birthdate -> :phone
+      :phone -> :confirmation_code
+    end
+
+    changeset = Accounts.change_user_registration(%User{}, user_params)
 
     socket =
       socket
-      |> assign(trigger_submit: false)
-      |> assign(user: user)
-      |> assign(step: step)
-      |> assign(registration: registration)
+      |> assign(:step, step)
+      |> assign(:registration, changeset)
       |> assign(:valid, false)
 
     {:noreply, socket}
   end
 
-  def handle_event("next", %{"user" => %{"birthdate" => birthdate}}, socket) do
-    user = socket.assigns.user
-    user = %User{user | birthdate: birthdate}
-    registration = Accounts.change_user_registration(user)
+  def handle_event("next", %{"user" => user_params}, %{assigns: %{step: :birthdate}} = socket) do
     step = :phone
+    changeset = Accounts.change_user_registration(%User{}, user_params)
 
     socket =
       socket
-      |> assign(trigger_submit: false)
-      |> assign(user: user)
-      |> assign(step: step)
-      |> assign(registration: registration)
+      |> assign(:step, step)
+      |> assign(:registration, changeset)
       |> assign(:valid, false)
-
-    {:noreply, socket}
-  end
-
-  def handle_event(
-        "next",
-        %{"user" => %{"country_id" => country_id, "phone_number" => phone_number}},
-        socket
-      ) do
-    user = socket.assigns.user
-    user = %User{user | country_id: country_id, phone_number: phone_number}
-    registration = Accounts.change_user_registration(user)
-    step = :confirmation_code
-
-    country = Countries.get_country!(country_id)
-    number = "+#{country.code}#{phone_number}"
-
-    body = "123456 is your verification code for Pelican."
-
-    # _message =
-    #   ExTwilio.Message.create(to: number, from: "+14782495438", body: body) |> IO.inspect()
-
-    :timer.send_interval(1000, self(), :tick)
-
-    socket =
-      socket
-      |> assign(trigger_submit: false)
-      |> assign(user: user)
-      |> assign(step: step)
-      |> assign(registration: registration)
-      |> assign(:valid, false)
-      |> assign(:number, number)
-      |> assign(:ticks, 60)
-      |> assign(:continue_button_text, "Resend in 60s")
 
     {:noreply, socket}
   end
@@ -227,6 +185,23 @@ defmodule PelicanWeb.UserAuthenticationLive do
 
   defp country_options do
     Pelican.Countries.list_countries()
-    |> Enum.map(fn c -> {"#{c.flag} +#{c.code} #{c.name}", c.id} end)
+    |> Enum.map(fn c -> {"#{c.flag} +#{c.code} #{c.name}", "#{c.id}"} end)
+  end
+
+  defp send_code(user_params, socket) do
+    changeset = Accounts.change_user_registration(%User{}, user_params)
+
+    socket = case Pelican.Messages.send_code(user_params) do
+      {:ok, number_display, code } -> socket |> assign(number: number_display, code: code)
+      {:error, %{"message" => message}, _} -> socket |> assign(:error, message)
+    end
+
+    :timer.send_interval(1000, self(), :tick)
+
+    socket
+      |> assign(:registration, changeset)
+      |> assign(:ticks, 60)
+      |> assign(:continue_button_text, "Resend in 60s")
+      |> assign(:valid, false)
   end
 end

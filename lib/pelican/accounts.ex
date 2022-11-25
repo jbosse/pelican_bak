@@ -26,6 +26,10 @@ defmodule Pelican.Accounts do
     Repo.get_by(User, email: email)
   end
 
+  def get_user_by_number(country_id, phone_number) do
+    Repo.get_by(User, country_id: country_id, phone_number: phone_number)
+  end
+
   @doc """
   Gets a user by email and password.
 
@@ -349,5 +353,15 @@ defmodule Pelican.Accounts do
       {:ok, %{user: user}} -> {:ok, user}
       {:error, :user, changeset, _} -> {:error, changeset}
     end
+  end
+
+  def update_user(%User{} = user, attrs) do
+    user
+    |> User.registration_changeset(attrs)
+    |> Repo.update()
+  end
+
+  def get_user_by_phone_and_code(country_id, phone_number, confirmation_code) do
+    Repo.get_by(User, country_id: country_id, phone_number: phone_number, confirmation_code: confirmation_code)
   end
 end

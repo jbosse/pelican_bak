@@ -19,17 +19,23 @@ defmodule PelicanWeb.UserSessionController do
   end
 
   defp create(conn, %{"user" => user_params}, info) do
-    %{"email" => email, "password" => password} = user_params
+    %{
+      "country_id" => country_id,
+      "phone_number" => phone_number,
+      "confirmation_code" => confirmation_code
+    } = user_params
 
-    if user = Accounts.get_user_by_email_and_password(email, password) do
+    clean_number = String.replace(user_params["phone_number"], ~r/[^0-9]/, "")
+    clean_user_params = %{user_params| "phone_number" => clean_number}
+
+    if user = Accounts.get_user_by_phone_and_code(country_id, clean_number, confirmation_code) do
       conn
       |> put_flash(:info, info)
-      |> UserAuth.log_in_user(user, user_params)
+      |> UserAuth.log_in_user(user, clean_user_params)
     else
       # In order to prevent user enumeration attacks, don't disclose whether the email is registered.
       conn
       |> put_flash(:error, "Invalid email or password")
-      |> put_flash(:email, String.slice(email, 0, 160))
       |> redirect(to: ~p"/users/log_in")
     end
   end
