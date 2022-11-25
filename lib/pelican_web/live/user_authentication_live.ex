@@ -149,19 +149,6 @@ defmodule PelicanWeb.UserAuthenticationLive do
     {:noreply, socket}
   end
 
-  def handle_event("next", %{"user" => user_params}, %{assigns: %{step: :birthdate}} = socket) do
-    step = :phone
-    changeset = Accounts.change_user_registration(%User{}, user_params)
-
-    socket =
-      socket
-      |> assign(:step, step)
-      |> assign(:registration, changeset)
-      |> assign(:valid, false)
-
-    {:noreply, socket}
-  end
-
   def handle_info(:tick, %{assigns: %{ticks: 0}} = socket) do
     socket =
       socket
